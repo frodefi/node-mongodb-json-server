@@ -1,4 +1,4 @@
 node-mongodb-json-server
 ========================
 
-Testing setting up a json-server with Node, Restify (Express) and node-mysql.
+Testing setting up a json-server with Node, Restify and node-mysql. Restify can very easily be replaced with Express, probably without any other changes in the code.
