@@ -1,9 +1,9 @@
 node-mongodb-json-server
 ========================
 
-Testing setting up a json-server with Node, Restify and node-mysql.
+Testing setting up a json-server with Node, Restify and node-mongodb-native.
 
-Restify can very easily be replaced with Express, probably without any other changes in the code.
+Restify can very easily be replaced with Express, probably just by changing the require-module to use Express.
 
 This json-server saves notes to a database.
 
