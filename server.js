@@ -1,92 +1,50 @@
 'use strict';
 
-var restify = require('restify')
-  , db      = require('./db');
+var restify      = require('restify');
+var NoteProvider = require('./db').NoteProvider;
+var routes       = require('./routes');
 
-var server = restify.createServer({
-  name: 'json-server'
-});
+var server       = restify.createServer({ name: 'json-server' });
+var noteProvider = new NoteProvider(
+  process.env.mongo_host       || 'localhost',
+  process.env.mongo_port       || 27017,
+  process.env.mongo_db         || 'nki',
+  process.env.mongo_collection || 'notes'
+);
 
 server.use(restify.bodyParser());
 server.use(restify.queryParser());
+server.use(function(req, res, next) {
+  req.noteProvider = noteProvider; // make it available in the routes module
+  next();
+});
 
-server.get('/get', getTranslations);
-server.post('/create', createTranslation); // curl --data "userId=1&dictionary=1&originalTranslationId=0&fromWord=Fisk&fromDescription=&toWord=Zivis&toDescription=" localhost:8080/vocababe/create
-server.put('/update', updateTranslation);
-server.del('/delete', deleteTranslation);
+// Find all notes, like:
+// curl -i http://localhost:8080/get
+server.get('/get', routes.findAllNotes);
+
+// Find note by id, like:
+// curl -i http://localhost:8080/get/id/51374299e669481c48a25c8c
+server.get('/get/:id', routes.findNoteById);
+
+
+// Create new note, like:
+// curl -i -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"' http://localhost:8080/new
+server.post('/new', routes.saveNote);
+
+// Update note, like:
+// curl -i -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
+server.put('/update/:id', routes.saveNote);
+
+// curl -i -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
+server.del('/delete/:id', routes.deleteNote);
 
 server.listen(8080, function() {
   console.log('%s listening at %s', server.name, server.url);
 });
 
-function callback (err, result) {
-  return err ? res.send(err) : res.json(result);
-}
+process.on('uncaughtException', function (err) {
+  console.log( "UNCAUGHT EXCEPTION " );
+  console.log( "[Inside 'uncaughtException' event] " + err.stack || err.message );
+});
 
-function getTranslations(req, res) {
-  var fields = [
-    req.params.userId,
-    req.params.dictionary,
-    req.params.lastChanged
-  ];
-  if (req.params.lastChanged) {
-    db.getTranslationsByDate(fields, function (err, result) {   return err ? res.send(err) : res.json(result); });
-  } else {
-    db.getTranslationsByDictionary(fields, function (err, result) {   return err ? res.send(err) : res.json(result); });
-  }
-  console.log(fields);
-}
-
-function getTranslationsByDate(req, res) {
-  var fields = [
-    req.params.lastChanged,
-    req.params.userId,
-    req.params.dictionary
-  ];
-  console.log(fields);
-  db.getTranslationsById(fields, function (err, result) {   return err ? res.send(err) : res.json(result); });
-}
-
-function test(req, res) {
-  res.send("hey " + JSON.stringify(req.params));
-}
-
-function createTranslation(req, res) {
-  var fields = [
-    req.params.userId,
-    req.params.dictionary,
-    req.params.fromWord,
-    req.params.fromDescription,
-    req.params.toWord,
-    req.params.toDescription,
-    req.params.originalTranslationId
-  ];
-  db.createTranslation(fields, function (err, result) {
-    if (err) {
-      return res.json({"error":"something went wrong" + err});
-    }
-    res.json(result.insertId);
-  });
-}
-
-function updateTranslation(req, res) {
-  var fields = [
-    req.params.fromWord,
-    req.params.fromDescription,
-    req.params.toWord,
-    req.params.toDescription,
-    req.params.userId,
-    req.params.id
-  ];
-  console.log(fields);
-  db.updateTranslation(fields, function (err, result) {   return err ? res.send(err) : res.json(result); });
-}
-
-function deleteTranslation(req, res) {
-  var fields = [
-    req.params.userId,
-    req.params.id
-  ];
-  console.log(fields);
-  db.deleteTranslation(fields, function (err, result) {   return err ? res.send(err) : res.json(result); });
-}
