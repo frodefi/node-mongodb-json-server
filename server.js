@@ -1,13 +1,62 @@
 'use strict';
 
-var express      = require('express');
-var app          = express();
-var NoteProvider = require('./db').NoteProvider;
-var port         = process.env.express_port || 8080;
+var express       = require('express');
+var app           = express();
+var NoteProvider  = require('./db').NoteProvider;
+var passport      = require('passport');
+var LocalStrategy = require('passport-local').Strategy;
+var port          = process.env.express_port || 8080;
+//var util          = require('util');
+
+// For Passport
+var users = [
+    { id: 1, username: 'bob', password: 'secret', email: 'bob@example.com' }
+  , { id: 2, username: 'joe', password: 'birthday', email: 'joe@example.com' }
+];
+
+passport.serializeUser(function(user, done) {
+  done(null, user.id);
+});
+
+passport.deserializeUser(function(id, done) {
+  User.findOne(id, function (err, user) {
+    done(err, user);
+  });
+});
+
+passport.use(new LocalStrategy(
+  function(username, password, done) {
+    User.findOne({ username: username }, function (err, user) {
+      if (err) { return done(err); }
+      if (!user) {
+        return done(null, false, { message: 'Unknown user' });
+      }
+      if (!user.validPassword(password)) {
+        return done(null, false, { message: 'Invalid password' });
+      }
+      return done(null, user);
+    });
+  }
+));
 
 app.configure(function () {
-  app.use(express.logger('dev'));     /* 'default', 'short', 'tiny', 'dev' */
+//  app.use(express.logger('dev'));     /* 'default', 'short', 'tiny', 'dev' */
   app.use(express.bodyParser());
+//app.use(express.methodOverride());
+  app.use(express.cookieParser());
+  app.use(express.session({ secret: 'keyboard cat' }));
+  // Initialize Passport!  Also use passport.session() middleware, to support
+  // persistent login sessions (recommended).
+  app.use(passport.initialize());
+  app.use(passport.session());
+});
+
+app.configure('development', function(){
+  app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
+});
+
+app.configure('production', function(){
+  app.use(express.errorHandler());
 });
 
 var noteProvider = new NoteProvider(
