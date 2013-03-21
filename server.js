@@ -1,10 +1,15 @@
 'use strict';
 
-var restify      = require('restify');
+var express      = require('express');
+var app          = express();
 var NoteProvider = require('./db').NoteProvider;
-var routes       = require('./routes');
+var port         = process.env.express_port || 8080;
 
-var server       = restify.createServer({ name: 'json-server' });
+app.configure(function () {
+  app.use(express.logger('dev'));     /* 'default', 'short', 'tiny', 'dev' */
+  app.use(express.bodyParser());
+});
+
 var noteProvider = new NoteProvider(
   process.env.mongo_host       || 'localhost',
   process.env.mongo_port       || 27017,
@@ -12,35 +17,37 @@ var noteProvider = new NoteProvider(
   process.env.mongo_collection || 'notes'
 );
 
-server.use(restify.bodyParser());
-server.use(restify.queryParser());
-server.use(function(req, res, next) {
-  req.noteProvider = noteProvider; // make it available in the routes module
-  next();
-});
+// Generalized function for what to do with a request
+var doOperation = function(operation) {
+  return function(req, res) {
+    noteProvider[operation](req.params, function (err, result){
+      return err ? res.send(err) : res.json(result);
+    });
+  }
+};
 
 // Find all notes, like:
 // curl -i http://localhost:8080/get
-server.get('/get', routes.findAllNotes);
+app.get('/get', doOperation('findAllNotes'));
 
 // Find note by id, like:
 // curl -i http://localhost:8080/get/id/51374299e669481c48a25c8c
-server.get('/get/:id', routes.findNoteById);
+app.get('/get/:id', doOperation('findNoteById'));
 
 
 // Create new note, like:
 // curl -i -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"' http://localhost:8080/new
-server.post('/new', routes.saveNote);
+app.post('/new', doOperation('saveNote'));
 
 // Update note, like:
 // curl -i -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
-server.put('/update/:id', routes.saveNote);
+app.put('/update/:id', doOperation('saveNote'));
 
 // curl -i -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
-server.del('/delete/:id', routes.deleteNote);
+app.del('/delete/:id', doOperation('deleteNote'));
 
-server.listen(8080, function() {
-  console.log('%s listening at %s', server.name, server.url);
+app.listen(port, function() {
+  console.log('Express listening at %s', port);
 });
 
 process.on('uncaughtException', function (err) {

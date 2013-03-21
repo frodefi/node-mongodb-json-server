@@ -1,78 +1,61 @@
 // Database related
 'use strict';
 
-var Db                = require('mongodb').Db;
-var Connection        = require('mongodb').Connection;
-var Server            = require('mongodb').Server;
+var MongoClient       = require('mongodb').MongoClient;
 var BSON              = require('mongodb').BSONPure;
 var ObjectID          = require('mongodb').ObjectID;
 var checkForHexRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-var db;
-var collectionName;
 
 var NoteProvider = function(host, port, database, collectionName) { // , username, password
-  this.db= new Db(database, new Server(host, port, {auto_reconnect: true}, {}), {w: 1});
-  this.db.open(function(){});
+  var dbUrl = "mongodb://"+host+":"+port+"/"+database;
+  var self = this;
+  MongoClient.connect(dbUrl, function(err, db) {
+    self.db = db;
+  });
   this.collectionName = collectionName;
-// Should rewrite the database connection to use the new style with MongoClient, as described in
-//  http://mongodb.github.com/node-mongodb-native/driver-articles/mongoclient.html#mongoclient-connect
 };
 
-NoteProvider.prototype.getCollection= function(callback) {
+// Generalized function to operations on the database
+// Todo: Generalize even more when user authenication is implemented
+NoteProvider.prototype.doOperation = function(operation, note, callback) {
+  var operationCallback = function(err, result) { callback(err, result) };
   this.db.collection(this.collectionName, function(err, collection) {
-    if( err ) callback(err);
-    else callback(null, collection)
-  });
-};
-
-NoteProvider.prototype.findAll = function(callback) {
-  this.getCollection(function(err, collection) {
-    if( err ) callback(err);
+    //todo: move this check into a general note validator
+    if (note._id) {
+      if(checkForHexRegExp.test(note._id)) {
+        note._id = new BSON.ObjectID(note._id);
+      } else {
+        err = {error: 'Wrong ID format'};
+      }
+    }
+    if(err) callback(err)
     else {
-      collection.find().toArray(function(err, results) {
-        if(err) callback(err);
-        else callback(null, results)
-      });
+      if(operation==='find') {
+        collection.find().toArray(operationCallback);
+      } else {
+        collection[operation](note, operationCallback);
+      }
     }
   });
+}
+
+NoteProvider.prototype.findAllNotes = function(note, callback) {
+  this.doOperation('find', note, callback);
 };
 
-NoteProvider.prototype.findById = function(id, callback) {
-  this.getCollection(function(err, collection) {
-    if(!checkForHexRegExp.test(id)) err = {error: 'Wrong ID format'};
-    if(err) callback(err);
-    else {
-      collection.findOne({_id: new BSON.ObjectID(id)}, function(err, result) {
-        if(err) callback(err);
-        else callback(null, result)
-      });
-    }
-  });
+NoteProvider.prototype.findNoteById = function(note, callback) {
+  this.doOperation('findOne', note, callback);
 };
 
-NoteProvider.prototype.save = function(id, note, callback) {
-  this.getCollection(function(err, collection) {
-    if(checkForHexRegExp.test(id)) note[_id] = new BSON.ObjectID(id);
-    if(err) callback(err);
-    else {
-      note.created_at = new Date();
-      collection.save(note, function() {
-        callback(null, note);
-      });
-    }
-  });
+NoteProvider.prototype.saveNote = function(note, callback) {
+  note.created_at = new Date();
+  var validates = true; // todo: Should do some validation, for now just let anything be ok
+  validates ? this.doOperation('save', note, callback) : callback({"error": "saveNote validation error"});
 };
 
-NoteProvider.prototype.delete = function(id, callback) {
-  this.getCollection(function(err, collection) {
-    if(err) callback(err);
-    else {
-      collection.remove({_id: new BSON.ObjectID(id)}, function(err, result) {
-        if(err) callback(err);
-        else callback(null, result)
-      });
-    }
-  });
+NoteProvider.prototype.deleteNote = function(note, callback) {
+  var validates = true; // todo: Should really do validation here too...
+  validates ? this.doOperation('remove', note, callback) : callback({"error": "deleteNote validation error"});
 };
 
 exports.NoteProvider = NoteProvider;
