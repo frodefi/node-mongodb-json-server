@@ -2,7 +2,7 @@
 
 var express       = require('express');
 var app           = express();
-var NoteProvider  = require('./db').NoteProvider;
+var DbProvider  = require('./db').DbProvider;
 var passport      = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var port          = process.env.express_port || 8080;
@@ -19,14 +19,14 @@ passport.serializeUser(function(user, done) {
 });
 
 passport.deserializeUser(function(id, done) {
-  User.findOne(id, function (err, user) {
+  dbProvider.findUserById(id, function (err, user) {
     done(err, user);
   });
 });
 
 passport.use(new LocalStrategy(
   function(username, password, done) {
-    User.findOne({ username: username }, function (err, user) {
+    dbProvider.findUserByUsername({ username: username }, function (err, user) {
       if (err) { return done(err); }
       if (!user) {
         return done(null, false, { message: 'Unknown user' });
@@ -59,7 +59,7 @@ app.configure('production', function(){
   app.use(express.errorHandler());
 });
 
-var noteProvider = new NoteProvider(
+var dbProvider = new DbProvider(
   process.env.mongo_host       || 'localhost',
   process.env.mongo_port       || 27017,
   process.env.mongo_db         || 'nki',
@@ -69,7 +69,7 @@ var noteProvider = new NoteProvider(
 // Generalized function for what to do with a request
 var doOperation = function(operation) {
   return function(req, res) {
-    noteProvider[operation](req.params, function (err, result){
+    dbProvider[operation](req.params, function (err, result){
       return err ? res.send(err) : res.json(result);
     });
   }
@@ -119,4 +119,3 @@ process.on('uncaughtException', function (err) {
   console.log( "UNCAUGHT EXCEPTION " );
   console.log( "[Inside 'uncaughtException' event] " + err.stack || err.message );
 });
-
