@@ -77,27 +77,43 @@ var doOperation = function(operation) {
 
 // Find all notes, like:
 // curl -i http://localhost:8080/get
-app.get('/get', doOperation('findAllNotes'));
+app.get('/get', ensureAuthenticated, doOperation('findAllNotes'));
 
 // Find note by id, like:
 // curl -i http://localhost:8080/get/id/51374299e669481c48a25c8c
-app.get('/get/:id', doOperation('findNoteById'));
+app.get('/get/:id', ensureAuthenticated, doOperation('findNoteById'));
 
 
 // Create new note, like:
 // curl -i -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"' http://localhost:8080/new
-app.post('/new', doOperation('saveNote'));
+app.post('/new', ensureAuthenticated, doOperation('saveNote'));
 
 // Update note, like:
 // curl -i -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
-app.put('/update/:id', doOperation('saveNote'));
+app.put('/update/:id', ensureAuthenticated, doOperation('saveNote'));
 
 // curl -i -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
-app.del('/delete/:id', doOperation('deleteNote'));
+app.del('/delete/:id', ensureAuthenticated, doOperation('deleteNote'));
+
+//   curl -v -d "username=bob&password=secret" http://127.0.0.1:3000/login
+app.post('/login', 
+  passport.authenticate('local', { failureRedirect: '/login', failureFlash: true }),
+  function(req, res) { res.redirect('/'); }
+);
+  
+app.get('/logout', function(req, res){
+  req.logout();
+  res.json({result: 'Logged out'});
+});
 
 app.listen(port, function() {
   console.log('Express listening at %s', port);
 });
+
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) { return next(); }
+  res.json({error: 'Not logged in'});
+}
 
 process.on('uncaughtException', function (err) {
   console.log( "UNCAUGHT EXCEPTION " );
