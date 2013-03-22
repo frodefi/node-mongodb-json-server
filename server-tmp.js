@@ -10,10 +10,12 @@ var util          = require('util');
 
 // For Passport
 passport.serializeUser(function(user, done) {
+  console.log("------ user:" + util.inspect(user));
   done(null, user.id);
 });
 
 passport.deserializeUser(function(id, done) {
+  console.log("------ id:" + id);
   dbProvider.findUser({id: id}, function (err, user) {
     done(err, user);
   });
@@ -21,10 +23,18 @@ passport.deserializeUser(function(id, done) {
 
 passport.use(new LocalStrategy(
   function(username, password, done) {
+    console.log('using:'+ username + '/' + password);
+    // asynchronous verification, for effect...
     process.nextTick(function () {
+      // Find the user by username.  If there is no user with the given
+      // username, or the password is not correct, set the user to `false` to
+      // indicate failure and set a flash message.  Otherwise, return the
+      // authenticated `user`.
       dbProvider.findUser({username: username, password: password}, function(err, user) {
-        if (err) { return done(err); }
-        if (!user) { return done(null, false, { error: 'Unknown user/password combination'}); }
+        console.log("User:"+util.inspect(user));
+        if (err) { console.log("err"); return done(err); }
+        if (!user) { console.log("!User"); return done(null, false, { message: 'Unknown user/password combination'}); }
+        console.log("else");
         return done(null, user);
       });
     });
@@ -32,9 +42,13 @@ passport.use(new LocalStrategy(
 ));
 
 app.configure(function () {
+//  app.use(express.logger('dev'));     /* 'default', 'short', 'tiny', 'dev' */
   app.use(express.bodyParser());
+//app.use(express.methodOverride());
   app.use(express.cookieParser());
   app.use(express.session({ secret: 'I do not use underwear' }));
+  // Initialize Passport!  Also use passport.session() middleware, to support
+  // persistent login sessions (recommended).
   app.use(passport.initialize());
   app.use(passport.session());
 });
@@ -86,16 +100,33 @@ app.del('/delete/:id', ensureAuthenticated, doOperation('deleteNote'));
 app.post(
   '/login',
   function(req, res, next) {
+    console.log('before authenticate:' + req.cookies.httpbasic + ':' + req.body.username+ ':' + req.body.password);
     passport.authenticate('local', function(err, user, info) {
-      if (err) { return res.json({error: err.message}); }
-      if (!user) { return res.json({error: 'User and/or password not correct'}); }
+      console.log('authenticate callback');
+      console.log("------ ac user:" + util.inspect(user));
+      console.log("------ info:" + util.inspect(info));
+      if (err) { return res.send({status:'err',message:err.message}); }
+      if (!user) { return res.send({status:'fail',message:info.message}); }
       req.logIn(user, function(err) {
-        if (err) { return res.json({error: err.message}); }
-        return res.json({result: 'logged in'});
+        console.log('hmmmmmmm');
+        if (err) { return res.send({status:'erro',message:err.message}); }
+        return res.send({status:'ok', message: 'no message'});
       });
     })(req, res, next);
+  },
+  function(err, req, res, next) {
+    console.log('failure');
+    // failure in login test route
+    return res.send({'status':'err','rrrmessage':err.message});
   }
 );
+
+/*
+app.post('/login',
+  passport.authenticate('local', res.json({error: 'Not logged in'});),
+  function(req, res) { res.json({result: 'logged in'}); }
+);
+*/
 
 app.get('/logout', function(req, res){
   req.logout();
@@ -107,7 +138,9 @@ app.listen(port, function() {
 });
 
 function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) { return next(); }
+  console.log('Heeeeey');
+  if (req.isAuthenticated()) { console.log('Hooooommmmmooooooo'); return next(); } else {console.log('fitte')}
+  console.log('Hoooooo');
   res.json({error: 'Not logged in'});
 }
 
