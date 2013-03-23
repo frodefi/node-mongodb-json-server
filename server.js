@@ -10,11 +10,11 @@ var util          = require('util');
 
 // For Passport
 passport.serializeUser(function(user, done) {
-  done(null, user.id);
+  done(null, user._id);
 });
 
 passport.deserializeUser(function(id, done) {
-  dbProvider.findUser({id: id}, function (err, user) {
+  dbProvider.findUser({_id: id}, function (err, user) {
     done(err, user);
   });
 });
@@ -34,11 +34,13 @@ passport.use(new LocalStrategy(
 app.configure(function () {
   app.use(express.bodyParser());
   app.use(express.cookieParser());
-  app.use(express.session({ secret: 'I do not use underwear' }));
+  app.use(express.methodOverride());
+  app.use(express.session({ secret: 'I don´t use underwear on causal friday', cookie: {maxAge: 2 * 7 * 24 * 60 * 60 * 1000} }));
   app.use(passport.initialize());
   app.use(passport.session());
 });
 
+/*
 app.configure('development', function(){
   app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
 });
@@ -46,6 +48,7 @@ app.configure('development', function(){
 app.configure('production', function(){
   app.use(express.errorHandler());
 });
+*/
 
 var dbProvider = new DbProvider(
   process.env.mongo_host       || 'localhost',
@@ -83,21 +86,19 @@ app.put('/update/:id', ensureAuthenticated, doOperation('saveNote'));
 app.del('/delete/:id', ensureAuthenticated, doOperation('deleteNote'));
 
 //   curl -i -d "username=bob&password=secret" http://127.0.0.1:3000/login
-app.post(
-  '/login',
-  function(req, res, next) {
-    passport.authenticate('local', function(err, user, info) {
+app.post('/login', function(req, res, next) {
+  passport.authenticate('local', function(err, user, info) {
+    if (err) { return res.json({error: err.message}); }
+    if (!user) { return res.json({error: 'User and/or password not correct'}); }
+    req.logIn(user, function(err) {
       if (err) { return res.json({error: err.message}); }
-      if (!user) { return res.json({error: 'User and/or password not correct'}); }
-      req.logIn(user, function(err) {
-        if (err) { return res.json({error: err.message}); }
-        return res.json({result: 'logged in'});
-      });
-    })(req, res, next);
-  }
-);
+      return res.json({result: 'logged in'});
+    });
+  })(req, res, next);
+});
 
 app.get('/logout', function(req, res){
+  console.log('What the fk!')
   req.logout();
   res.json({result: 'Logged out'});
 });
