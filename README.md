@@ -1,17 +1,15 @@
 node-mongodb-json-server
 ========================
 
-Testing setting up a json-server with Node, Restify (Express) and node-mongodb-native.
+Testing setting up a RESTful JSON server with Node, Express, Passport authenticaion and mongoDB with node-mongodb-native.
 
-Restify can very easily be replaced with Express, hopefully just by changing the require-module to use Express.
+This server store notes.
+
+Express could (hopefully) very easy be replaced with Restify. But I use for now Express for simplicity
+since all the tuturials out there is refering to Express. I might change that later.
 See here the reason why you might want to use Restify: http://mcavage.github.com/node-restify/
 
-This json-server store notes.
+I also did a simple test with mysql: https://github.com/frodefi/node-mysql-json-server
+and mongodb and socket.io: https://github.com/frodefi/node-mongodb-socketio-server
 
-I also did a similar test with mysql: https://github.com/frodefi/node-mysql-json-server
-
-I will next do a test using mongodb and socket.io, then I will also include authentication.
-If you don't want to use socket.io, you can take out the authentication part and put it in here.
-See https://github.com/frodefi/node-mongodb-socketio-server
-
-Please feel free to use this code as you like :)
+Please feel free to use this code as you like, MIT style :)

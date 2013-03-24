@@ -6,7 +6,7 @@ var DbProvider    = require('./db').DbProvider;
 var passport      = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var port          = process.env.express_port || 8080;
-var util          = require('util');
+//var util          = require('util');
 
 // For Passport
 passport.serializeUser(function(user, done) {
@@ -50,42 +50,17 @@ app.configure('production', function(){
 });
 */
 
+// Setup db instance
 var dbProvider = new DbProvider(
   process.env.mongo_host       || 'localhost',
   process.env.mongo_port       || 27017,
   process.env.mongo_db         || 'nki'
 );
+// Connect to db. I use (for now) 1 connection for the lifetime of this app
+// And we do not use the a callback when connection here (we do in the testing)
+dbProvider.connect(function(){});
 
-// Generalized function for what to do with a request
-var doOperation = function(operation) {
-  return function(req, res) {
-    dbProvider[operation](req.params, function (err, result){
-      return err ? res.send(err) : res.json(result);
-    });
-  }
-};
-
-// Find all notes, like:
-// curl -i http://localhost:8080/get
-app.get('/get', ensureAuthenticated, doOperation('findAllNotes'));
-
-// Find note by id, like:
-// curl -i http://localhost:8080/get/id/51374299e669481c48a25c8c
-app.get('/get/:id', ensureAuthenticated, doOperation('findNoteById'));
-
-
-// Create new note, like:
-// curl -i -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"' http://localhost:8080/new
-app.post('/new', ensureAuthenticated, doOperation('saveNote'));
-
-// Update note, like:
-// curl -i -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
-app.put('/update/:id', ensureAuthenticated, doOperation('saveNote'));
-
-// curl -i -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
-app.del('/delete/:id', ensureAuthenticated, doOperation('deleteNote'));
-
-//   curl -i -d "username=bob&password=secret" http://127.0.0.1:3000/login
+// curl -i -c cookie.txt -d "username=bob&password=secret" http://127.0.0.1:3000/login
 app.post('/login', function(req, res, next) {
   passport.authenticate('local', function(err, user, info) {
     if (err) { return res.json({error: err.message}); }
@@ -98,10 +73,38 @@ app.post('/login', function(req, res, next) {
 });
 
 app.get('/logout', function(req, res){
-  console.log('What the fk!')
   req.logout();
   res.json({result: 'Logged out'});
 });
+
+// Generalized function for what to do with a request (it´s interactions with db)
+var doOperation = function(operation) {
+  return function(req, res) {
+    dbProvider[operation](req.params, function (err, result){
+      return err ? res.send(err) : res.json(result);
+    });
+  }
+};
+
+// Find all notes, like:
+// curl -i -b cookie.txt http://localhost:8080/get
+// We need -b cookie.txt because we need to be logged in
+app.get('/get',        ensureAuthenticated, doOperation('findAllNotes'));
+
+// Find note by id, like:
+// curl -i -b cookie.txt http://localhost:8080/get/id/51374299e669481c48a25c8c
+app.get('/get/:id',    ensureAuthenticated, doOperation('findNoteById'));
+
+// Create new note, like:
+// curl -i -b cookie.txt -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"' http://localhost:8080/new
+app.post('/new',       ensureAuthenticated, doOperation('saveNote'));
+
+// Update note, like:
+// curl -i -b cookie.txt -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
+app.put('/update/:id', ensureAuthenticated, doOperation('saveNote'));
+
+// curl -i -b cookie.txt -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
+app.del('/delete/:id', ensureAuthenticated, doOperation('deleteNote'));
 
 app.listen(port, function() {
   console.log('Express listening at %s', port);

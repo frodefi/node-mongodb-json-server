@@ -5,23 +5,26 @@ var MongoClient       = require('mongodb').MongoClient;
 var BSON              = require('mongodb').BSONPure;
 var ObjectID          = require('mongodb').ObjectID;
 var checkForHexRegExp = new RegExp("^[0-9a-fA-F]{24}$");
-var Validator         = require('validator').Validator
+var Validator         = require('validator').Validator;
 var fieldMaxLength    = 1024;
 //var util              = require('util');
 
 var DbProvider = function(host, port, database) {
-  var dbUrl = "mongodb://"+host+":"+port+"/"+database;
+  this.dbUrl = "mongodb://"+host+":"+port+"/"+database;
+};
+
+DbProvider.prototype.connect = function(callback) {
   var self = this;
-  MongoClient.connect(dbUrl, function(err, db) {
+  MongoClient.connect(this.dbUrl, function(err, db) {
     self.db = db;
+    callback();
   });
 };
 
 // Do some basic validation on the data we get from the client/user
-var validateParams = function(params, callback) {
+DbProvider.prototype.validateParams = function(params, callback) {
   // Let´ do a quick general sanity check on the length on all fields
   for(var key in params) {
-    console.log('-------' + key);
     if(params[key].length > fieldMaxLength) callback(new Error('Field ' + key + ' is too long.'));
   }
   // and the let us check some specific fields better
@@ -33,13 +36,13 @@ var validateParams = function(params, callback) {
       var err = {error: 'Wrong ID format'};
     }
   }
+  // todo: add some more field to check...
   if(err) callback(err);
 }
 
-// Generalized function to operations on the database
-// Todo: Generalize even more when user authenication is implemented
+// Generalized function to do operations on the database
 DbProvider.prototype.doOperation = function(collection, operation, params, callback) {
-  validateParams(params, callback);
+  this.validateParams(params, callback);
   var operationCallback = function(err, result) {
     callback(err, result);
   };

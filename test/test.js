@@ -1,21 +1,17 @@
-var DbProvider = require('../db').DbProvider;
+var util       = require('util');
 var assert     = require('assert');
-var dbProvider = new DbProvider(
-  process.env.mongo_host       || 'localhost',
-  process.env.mongo_port       || 27017,
-  process.env.mongo_db         || 'nki'
-);
+var DbProvider = require('../db').DbProvider;
+var dbProvider = new DbProvider('localhost', 27017, 'nki');
 
+// Just testing testing, much more to come...
 describe('DbProvider', function(){
-/*
-  beforeEach(function(){
-
-  })
-*/
   describe('findAllNotes', function(){
-    it('should return some notes', function(){
-      dbProvider.findAllNotes({}, function (err, result){
-        assert(result.length > 0);
+    it('should return some notes', function(done){
+      dbProvider.connect(function(){
+        dbProvider.findAllNotes({}, function (err, result){
+          assert(result.length > 0);
+          done();
+        });
       });
     })
   })
