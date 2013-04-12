@@ -8,6 +8,8 @@ var LocalStrategy = require('passport-local').Strategy;
 var port          = process.env.express_port || 8080;
 //var util          = require('util');
 
+exports.app       = app;
+
 // For Passport
 passport.serializeUser(function(user, done) {
   done(null, user._id);
@@ -61,6 +63,7 @@ var dbProvider = new DbProvider(
 dbProvider.connect(function(){});
 
 // curl -i -c cookie.txt -d "username=bob&password=secret" http://127.0.0.1:3000/login
+// Curl need -c cookie.txt to be able to store a cookie so we can stay logged in
 app.post('/login', function(req, res, next) {
   passport.authenticate('local', function(err, user, info) {
     if (err) { return res.json({error: err.message}); }
@@ -77,7 +80,7 @@ app.get('/logout', function(req, res){
   res.json({result: 'Logged out'});
 });
 
-// Generalized function for what to do with a request (it´s interactions with db)
+// Generalized function for what to do with a request (it is all interactions with the database)
 var doOperation = function(operation) {
   return function(req, res) {
     dbProvider[operation](req.params, function (err, result){
@@ -88,7 +91,6 @@ var doOperation = function(operation) {
 
 // Find all notes, like:
 // curl -i -b cookie.txt http://localhost:8080/get
-// We need -b cookie.txt because we need to be logged in
 app.get('/get',        ensureAuthenticated, doOperation('findAllNotes'));
 
 // Find note by id, like:

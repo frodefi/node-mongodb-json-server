@@ -2,6 +2,7 @@
 // Really just testing testing, more to come...
 describe('DbProvider', function(){
   var util       = require('util');
+  var async      = require('async');
   var assert     = require('assert');
   var DbProvider = require('../db').DbProvider;
   var dbProvider = new DbProvider('localhost', 27017, 'test');
@@ -10,7 +11,7 @@ describe('DbProvider', function(){
       url: 'www.nytimes.com',
       title: 'The New York Times',
       description: 'Newspaper',
-      tags: 'news, "New York"'
+      tags: 'news "New York"'
     },
     {
       url: 'digi.no',
