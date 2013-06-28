@@ -9,8 +9,8 @@ var Validator         = require('validator').Validator;
 var fieldMaxLength    = 1024;
 //var util              = require('util');
 
-var DbProvider = function(host, port, database) {
-  this.dbUrl = "mongodb://"+host+":"+port+"/"+database;
+var DbProvider = function(options) {
+  this.dbUrl = "mongodb://"+options.host+":"+options.port+"/"+options.db;
 };
 
 DbProvider.prototype.connect = function(callback) {
