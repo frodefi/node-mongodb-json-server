@@ -3,6 +3,8 @@
 var express       = require('express');
 var app           = express();
 var DbProvider    = require('./db').DbProvider;
+var nodemailer    = require("nodemailer");
+var emailSetup    = require("./emailsetup").bookingConfirmation.english;
 var passport      = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var port          = process.env.express_port || 8080;
@@ -53,17 +55,33 @@ app.configure('production', function(){
 */
 
 // Setup db instance
-var dbProvider = new DbProvider(
-  process.env.mongo_host       || 'localhost',
-  process.env.mongo_port       || 27017,
-  process.env.mongo_db         || 'nki'
-);
+var dbProvider = new DbProvider({
+  host   : process.env.mongo_host       || 'localhost',
+  port   : process.env.mongo_port       || 27017,
+  db     : process.env.mongo_db         || 'nki'
+});
 // Connect to db. I use (for now) 1 connection for the lifetime of this app
 // And we do not use the a callback when connection here (we do in the testing)
 dbProvider.connect(function(){});
 
-// curl -i -c cookie.txt -d "username=bob&password=secret" http://127.0.0.1:3000/login
-// Curl need -c cookie.txt to be able to store a cookie so we can stay logged in
+// Set up email provider
+var auth = {
+  user : process.env.smtp_user        || 'exampleuser@gmail.com',
+  pass : process.env.smtp_pass        || 'examplepass'
+};
+console.log(auth);
+var emailProvider = nodemailer.createTransport("SMTP", {
+  service: process.env.smtp_service     || 'Gmail',
+  auth: {
+    user : process.env.smtp_user        || 'exampleuser@gmail.com',
+    pass : process.env.smtp_pass        || 'examplepass'
+  }
+});
+
+emailSetup.from = process.env.smtp_from || '"My Name" example-from-email-address@gmail.com';
+
+// curl -i -c cookie.txt -d "username=bob&password=secret" http://localhost:8080/login
+// Curl needs -c cookie.txt to be able to store a cookie so we can stay logged in
 app.post('/login', function(req, res, next) {
   passport.authenticate('local', function(err, user, info) {
     if (err) { return res.json({error: err.message}); }
@@ -80,37 +98,63 @@ app.get('/logout', function(req, res){
   res.json({result: 'Logged out'});
 });
 
-// Generalized function for what to do with a request (it is all interactions with the database)
-var doOperation = function(operation) {
+doDbOperation('findAllNotes');
+//--------- Note (db) requests - login required --------
+// Find all notes, like:
+// curl -i -b cookie.txt http://localhost:8080/get
+app.get('/get',        ensureAuthenticated, doDbOperation('findAllNotes'));
+
+// Find note by id, like:
+// curl -i -b cookie.txt http://localhost:8080/get/id/51374299e669481c48a25c8c
+app.get('/get/:id',    ensureAuthenticated, doDbOperation('findNoteById'));
+
+// Create new note, like:
+// curl -i -b cookie.txt -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"}' http://localhost:8080/new
+app.post('/new',       ensureAuthenticated, doDbOperation('saveNote'));
+
+// Update note, like:
+// curl -i -b cookie.txt -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
+app.put('/update/:id', ensureAuthenticated, doDbOperation('saveNote'));
+
+// curl -i -b cookie.txt -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
+app.del('/delete/:id', ensureAuthenticated, doDbOperation('deleteNote'));
+
+app.listen(port, function() {
+  console.log('Express listening at %s', port);
+});
+
+//------------ Other non-db-requests ------------
+
+// Booking request - send confirmation email
+// Example:
+// curl -i -X POST -H 'Content-Type: application/json' -d '{"arrival":"2013.06.13", "departure":"2013.06.16", "email":"myemail@example.com"}' http://localhost:8080/send-mail
+app.post('/send-mail/:test', ensureAuthenticated, function(req, res){
+  console.log(req.body);
+  emailSetup.text = emailSetup.text.replace("ARRIVAL",req.body.arrival);
+  emailSetup.text = emailSetup.text.replace("DEPARTURE",req.body.departure);
+  emailSetup.to   = req.body.email;
+  console.log(emailSetup);
+  emailProvider.sendMail(emailSetup, function(error, response){
+    if(error){
+      console.log(error);
+      res.json({result: 'error'});
+    }else{
+      console.log("Message sent: " + response.message);
+      res.json({result: 'ok'});
+    }
+  });
+});
+
+//------------- Helper functions --------------------
+
+// Generalized function for what to do with a request that interacts with the database
+function doDbOperation(operation) {
   return function(req, res) {
     dbProvider[operation](req.params, function (err, result){
       return err ? res.send(err) : res.json(result);
     });
   }
 };
-
-// Find all notes, like:
-// curl -i -b cookie.txt http://localhost:8080/get
-app.get('/get',        ensureAuthenticated, doOperation('findAllNotes'));
-
-// Find note by id, like:
-// curl -i -b cookie.txt http://localhost:8080/get/id/51374299e669481c48a25c8c
-app.get('/get/:id',    ensureAuthenticated, doOperation('findNoteById'));
-
-// Create new note, like:
-// curl -i -b cookie.txt -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"' http://localhost:8080/new
-app.post('/new',       ensureAuthenticated, doOperation('saveNote'));
-
-// Update note, like:
-// curl -i -b cookie.txt -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
-app.put('/update/:id', ensureAuthenticated, doOperation('saveNote'));
-
-// curl -i -b cookie.txt -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
-app.del('/delete/:id', ensureAuthenticated, doOperation('deleteNote'));
-
-app.listen(port, function() {
-  console.log('Express listening at %s', port);
-});
 
 function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated()) { return next(); }
