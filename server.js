@@ -9,7 +9,7 @@ var passport      = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var port          = process.env.PORT || 8080;
 //var util          = require('util');
-
+console.log("Port:" + port);
 exports.app       = app;
 
 // For Passport
