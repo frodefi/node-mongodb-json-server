@@ -36,7 +36,7 @@ DbProvider.prototype.validateParams = function(params, callback) {
       var err = {error: 'Wrong ID format'};
     }
   }
-  // todo: add some more field to check...
+  // todo: add some more fields to check...
   if(err) callback(err);
 }
 
@@ -56,7 +56,7 @@ DbProvider.prototype.doOperation = function(collection, operation, params, callb
 }
 
 DbProvider.prototype.findAllNotes = function(params, callback) {
-  this.doOperation('notes', 'find', params, callback);
+  this.doOperation('users', 'find', params, callback);
 };
 
 DbProvider.prototype.findNoteById = function(params, callback) {

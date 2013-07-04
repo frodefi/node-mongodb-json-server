@@ -99,7 +99,7 @@ doDbOperation('findAllNotes');
 //--------- Note (db) requests - login required --------
 // Find all notes, like:
 // curl -i -b cookie.txt http://localhost:8080/get
-app.get('/get',        ensureAuthenticated, doDbOperation('findAllNotes'));
+app.get('/get',        doDbOperation('findAllNotes'));
 
 // Find note by id, like:
 // curl -i -b cookie.txt http://localhost:8080/get/id/51374299e669481c48a25c8c
