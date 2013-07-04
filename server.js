@@ -7,7 +7,7 @@ var nodemailer    = require("nodemailer");
 var emailSetup    = require("./emailsetup").bookingConfirmation.english;
 var passport      = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
-var port          = process.env.EXPRESS_PORT || 8080;
+var port          = process.env.PORT || 8080;
 //var util          = require('util');
 
 exports.app       = app;
