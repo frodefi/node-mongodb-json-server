@@ -99,7 +99,7 @@ doDbOperation('findAllNotes');
 //--------- Note (db) requests - login required --------
 // Find all notes, like:
 // curl -i -b cookie.txt http://localhost:8080/get
-app.get('/get',        doDbOperation('findAllNotes'));
+app.get('/get',        ensureAuthenticated, doDbOperation('findAllNotes'));
 
 // Find note by id, like:
 // curl -i -b cookie.txt http://localhost:8080/get/id/51374299e669481c48a25c8c
@@ -125,7 +125,7 @@ app.listen(port, function() {
 // Booking request - send confirmation email
 // Example:
 // curl -i -X POST -H 'Content-Type: application/json' -d '{"arrival":"2013.06.13", "departure":"2013.06.16", "email":"myemail@example.com"}' http://localhost:8080/send-mail
-app.post('/send-mail/:test', function(req, res){
+app.post('/send-mail/:test', ensureAuthenticated, function(req, res){
   console.log(req.body);
   emailSetup.text = emailSetup.text.replace("ARRIVAL",req.body.arrival);
   emailSetup.text = emailSetup.text.replace("DEPARTURE",req.body.departure);
