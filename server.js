@@ -8,6 +8,7 @@ var emailSetup    = require("./emailsetup").bookingConfirmation.english;
 var passport      = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var port          = process.env.PORT || 8080;
+var config        = require('./config');
 //var util          = require('util');
 
 exports.app       = app;
@@ -26,7 +27,6 @@ passport.deserializeUser(function(id, done) {
 passport.use(new LocalStrategy(
   function(username, password, done) {
     process.nextTick(function () {
-      console.log("username:"+ username + " password:"+ password);
       dbProvider.findUser({username: username, password: password}, function(err, user) {
         if (err) { return done(err); }
         if (!user) { return done(null, false, { error: 'Unknown user/password combination'}); }
@@ -55,30 +55,20 @@ app.configure('production', function(){
 });
 */
 
+// process.env.MONGOLAB_URI || process.env.MONGO_URI || 'mongodb://dbuser:dbpassword@dbhost.com:27017/dbname'
 // Setup db instance
-var dbProvider = new DbProvider(process.env.MONGOLAB_URI || 'mongodb://dbuser:dbpassword@dbhost.com:27017/dbname');
+var dbProvider = new DbProvider(config.db[config.env]);
 // Connect to db. I use (for now) 1 connection for the lifetime of this app
 // And we do not use the a callback when connection here (we do in the testing)
 dbProvider.connect(function(){});
 
 // Set up email provider
-var auth = {
-  user : process.env.SMTP_USER      || 'exampleuser@gmail.com',
-  pass : process.env.SMTP_PASS      || 'examplepass'
-};
-console.log(auth);
-var emailProvider = nodemailer.createTransport("SMTP", {
-  service: process.env.SMTP_SERVICE || 'Gmail',
-  auth: {
-    user : process.env.SMTP_USER    || 'exampleuser@gmail.com',
-    pass : process.env.SMTP_PASS    || 'examplepass'
-  }
-});
+var emailProvider = nodemailer.createTransport(config.mailer.transport, config.mailer.login);
 
-emailSetup.from = process.env.SMTP_FROM || '"My Name" my-address@gmail.com';
+emailSetup.from = config.mailer.from;
 
-// curl -i -c cookie.txt -d "username=bob&password=secret" http://localhost:8080/login
-// Curl needs -c cookie.txt to be able to store a cookie so we can stay logged in
+// curl -i -c cookies.txt -d "username=bob&password=secret" http://localhost:8080/login
+// Curl needs -c cookies.txt to be able to store a cookie so we can stay logged in
 app.post('/login', function(req, res, next) {
   passport.authenticate('local', function(err, user, info) {
     if (err) { return res.json({error: err.message}); }
@@ -98,22 +88,22 @@ app.get('/logout', function(req, res){
 doDbOperation('findAllNotes');
 //--------- Note (db) requests - login required --------
 // Find all notes, like:
-// curl -i -b cookie.txt http://localhost:8080/get
+// curl -i -b cookies.txt http://localhost:8080/get
 app.get('/get',        ensureAuthenticated, doDbOperation('findAllNotes'));
 
 // Find note by id, like:
-// curl -i -b cookie.txt http://localhost:8080/get/id/51374299e669481c48a25c8c
+// curl -i -b cookies.txt http://localhost:8080/get/id/51374299e669481c48a25c8c
 app.get('/get/:id',    ensureAuthenticated, doDbOperation('findNoteById'));
 
 // Create new note, like:
-// curl -i -b cookie.txt -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"}' http://localhost:8080/new
+// curl -i -b cookies.txt -X POST -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich!"}' http://localhost:8080/new
 app.post('/new',       ensureAuthenticated, doDbOperation('saveNote'));
 
 // Update note, like:
-// curl -i -b cookie.txt -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
+// curl -i -b cookies.txt -X PUT -H 'Content-Type: application/json' -d '{"title": "My important note", "content": "Get rich, quickly!"}' http://localhost:8080/update/5137d133d97331afb8000001
 app.put('/update/:id', ensureAuthenticated, doDbOperation('saveNote'));
 
-// curl -i -b cookie.txt -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
+// curl -i -b cookies.txt -X DELETE http://localhost:8080/delete/51374299e669481c48a25c8c
 app.del('/delete/:id', ensureAuthenticated, doDbOperation('deleteNote'));
 
 app.listen(port, function() {
@@ -122,15 +112,12 @@ app.listen(port, function() {
 
 //------------ Other non-db-requests ------------
 
-// Booking request - send confirmation email
+// Send email. First replace keywords from email text template.
 // Example:
-// curl -i -X POST -H 'Content-Type: application/json' -d '{"arrival":"2013.06.13", "departure":"2013.06.16", "email":"myemail@example.com"}' http://localhost:8080/send-mail
-app.post('/send-mail/:test', ensureAuthenticated, function(req, res){
-  console.log(req.body);
-  emailSetup.text = emailSetup.text.replace("ARRIVAL",req.body.arrival);
-  emailSetup.text = emailSetup.text.replace("DEPARTURE",req.body.departure);
+// curl -i -b cookies.txt -X POST -H 'Content-Type: application/json' -d '{"arrival":"2013.06.13", "departure":"2013.06.16", "email":"myemail@example.com"}' http://localhost:8080/send-mail
+app.post('/send-mail', ensureAuthenticated, function(req, res){
+  emailSetup.text = textReplace(emailSetup.originalText, req.body.replaceWith);
   emailSetup.to   = req.body.email;
-  console.log(emailSetup);
   emailProvider.sendMail(emailSetup, function(error, response){
     if(error){
       console.log(error);
@@ -145,6 +132,11 @@ app.post('/send-mail/:test', ensureAuthenticated, function(req, res){
 //------------- Helper functions --------------------
 
 // Generalized function for what to do with a request that interacts with the database
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) { return next(); }
+  res.json({error: 'Not logged in'});
+}
+
 function doDbOperation(operation) {
   return function(req, res) {
     dbProvider[operation](req.params, function (err, result){
@@ -153,9 +145,12 @@ function doDbOperation(operation) {
   }
 };
 
-function ensureAuthenticated(req, res, next) {
-  if (req.isAuthenticated()) { return next(); }
-  res.json({error: 'Not logged in'});
+// Replace keywords REPLACE1, REPLACE2... in original text with text form given array
+function textReplace(originalText, replaceWith){
+  for (var i=0; i<replaceWith.length; i++) {
+    originalText = originalText.replace("REPLACE" + (i+1), replaceWith[i]);
+  }
+  return originalText;
 }
 
 process.on('uncaughtException', function (err) {
