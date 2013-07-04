@@ -7,7 +7,7 @@ var nodemailer    = require("nodemailer");
 var emailSetup    = require("./emailsetup").bookingConfirmation.english;
 var passport      = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
-var port          = process.env.express_port || 8080;
+var port          = process.env.EXPRESS_PORT || 8080;
 //var util          = require('util');
 
 exports.app       = app;
@@ -55,30 +55,26 @@ app.configure('production', function(){
 */
 
 // Setup db instance
-var dbProvider = new DbProvider({
-  host   : process.env.mongo_host       || 'localhost',
-  port   : process.env.mongo_port       || 27017,
-  db     : process.env.mongo_db         || 'nki'
-});
+var dbProvider = new DbProvider(process.env.MONGO_URI || 'mongodb://dbuser:dbpassword@dbhost.com:27017/dbname');
 // Connect to db. I use (for now) 1 connection for the lifetime of this app
 // And we do not use the a callback when connection here (we do in the testing)
 dbProvider.connect(function(){});
 
 // Set up email provider
 var auth = {
-  user : process.env.smtp_user        || 'exampleuser@gmail.com',
-  pass : process.env.smtp_pass        || 'examplepass'
+  user : process.env.SMTP_USER      || 'exampleuser@gmail.com',
+  pass : process.env.SMTP_PASS      || 'examplepass'
 };
 console.log(auth);
 var emailProvider = nodemailer.createTransport("SMTP", {
-  service: process.env.smtp_service     || 'Gmail',
+  service: process.env.SMTP_SERVICE || 'Gmail',
   auth: {
-    user : process.env.smtp_user        || 'exampleuser@gmail.com',
-    pass : process.env.smtp_pass        || 'examplepass'
+    user : process.env.SMTP_USER    || 'exampleuser@gmail.com',
+    pass : process.env.SMTP_PASS    || 'examplepass'
   }
 });
 
-emailSetup.from = process.env.smtp_from || '"My Name" example-from-email-address@gmail.com';
+emailSetup.from = process.env.SMTP_FROM || '"My Name" my-address@gmail.com';
 
 // curl -i -c cookie.txt -d "username=bob&password=secret" http://localhost:8080/login
 // Curl needs -c cookie.txt to be able to store a cookie so we can stay logged in
@@ -128,7 +124,7 @@ app.listen(port, function() {
 // Booking request - send confirmation email
 // Example:
 // curl -i -X POST -H 'Content-Type: application/json' -d '{"arrival":"2013.06.13", "departure":"2013.06.16", "email":"myemail@example.com"}' http://localhost:8080/send-mail
-app.post('/send-mail/:test', ensureAuthenticated, function(req, res){
+app.post('/send-mail/:test', function(req, res){
   console.log(req.body);
   emailSetup.text = emailSetup.text.replace("ARRIVAL",req.body.arrival);
   emailSetup.text = emailSetup.text.replace("DEPARTURE",req.body.departure);

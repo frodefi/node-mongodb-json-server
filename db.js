@@ -9,13 +9,13 @@ var Validator         = require('validator').Validator;
 var fieldMaxLength    = 1024;
 //var util              = require('util');
 
-var DbProvider = function(options) {
-  this.dbUrl = "mongodb://"+options.host+":"+options.port+"/"+options.db;
+var DbProvider = function(uri) {
+  this.dbUri = uri;
 };
 
 DbProvider.prototype.connect = function(callback) {
   var self = this;
-  MongoClient.connect(this.dbUrl, function(err, db) {
+  MongoClient.connect(this.dbUri, function(err, db) {
     self.db = db;
     callback();
   });
