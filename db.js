@@ -46,6 +46,7 @@ DbProvider.prototype.doOperation = function(collection, operation, params, callb
   var operationCallback = function(err, result) {
     callback(err, result);
   };
+  console.log("c: " + collection + "p: " + operation);
   this.db.collection(collection, function(err, collection) {
     if(operation==='find') {
       collection.find().toArray(operationCallback);
