@@ -56,7 +56,7 @@ app.configure('production', function(){
 */
 
 // Setup db instance
-var dbProvider = new DbProvider(process.env.MONGO_URI || 'mongodb://dbuser:dbpassword@dbhost.com:27017/dbname');
+var dbProvider = new DbProvider(process.env.MONGOLAB_URI || 'mongodb://dbuser:dbpassword@dbhost.com:27017/dbname');
 // Connect to db. I use (for now) 1 connection for the lifetime of this app
 // And we do not use the a callback when connection here (we do in the testing)
 dbProvider.connect(function(){});
