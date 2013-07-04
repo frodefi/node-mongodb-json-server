@@ -9,7 +9,7 @@ var passport      = require('passport');
 var LocalStrategy = require('passport-local').Strategy;
 var port          = process.env.PORT || 8080;
 //var util          = require('util');
-console.log("Port:" + port);
+
 exports.app       = app;
 
 // For Passport
@@ -26,6 +26,7 @@ passport.deserializeUser(function(id, done) {
 passport.use(new LocalStrategy(
   function(username, password, done) {
     process.nextTick(function () {
+      console.log("username:"+ username + " password:"+ password);
       dbProvider.findUser({username: username, password: password}, function(err, user) {
         if (err) { return done(err); }
         if (!user) { return done(null, false, { error: 'Unknown user/password combination'}); }
