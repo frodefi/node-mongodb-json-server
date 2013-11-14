@@ -36,10 +36,48 @@ passport.use(new LocalStrategy(
   }
 ));
 
+//CORS middleware
+var allowCrossDomain = function(req, res, next) {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+  res.header('Access-Control-Allow-Headers', 'Accept, Origin, Content-Type');
+  res.header('Access-Control-Allow-Credentials', true);
+  next();
+}
+
+var allowCrossDomain = function(req, res, next) {
+  var oneof = false;
+  if(req.headers.origin) {
+    res.header('Access-Control-Allow-Origin', req.headers.origin);
+    oneof = true;
+  }
+  if(req.headers['access-control-request-method']) {
+    res.header('Access-Control-Allow-Methods', req.headers['access-control-request-method']);
+    oneof = true;
+  }
+  if(req.headers['access-control-request-headers']) {
+    res.header('Access-Control-Allow-Headers', req.headers['access-control-request-headers']);
+    oneof = true;
+  }
+  if(oneof) {
+    res.header('Access-Control-Allow-Credentials', true);
+    res.header('Access-Control-Max-Age', 60 * 60 * 24 * 365);
+  }
+
+  // intercept OPTIONS method
+  if (oneof && req.method == 'OPTIONS') {
+    res.send(200);
+  }
+  else {
+    next();
+  }
+};
+
 app.configure(function () {
   app.use(express.bodyParser());
   app.use(express.cookieParser());
   app.use(express.methodOverride());
+  app.use(allowCrossDomain);
   app.use(express.session({ secret: 'I don´t use underwear on causal friday', cookie: {maxAge: 2 * 7 * 24 * 60 * 60 * 1000} }));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -70,6 +108,7 @@ emailSetup.from = config.mailer.from;
 // curl -i -c cookies.txt -d "username=bob&password=secret" http://localhost:8080/login
 // Curl needs -c cookies.txt to be able to store a cookie so we can stay logged in
 app.post('/login', function(req, res, next) {
+  console.log('Login-details:',req.body);
   passport.authenticate('local', function(err, user, info) {
     if (err) { return res.json({error: err.message}); }
     if (!user) { return res.json({error: 'User and/or password not correct'}); }
@@ -84,6 +123,10 @@ app.get('/logout', function(req, res){
   req.logout();
   res.json({result: 'Logged out'});
 });
+
+// tmp notes:
+// mongo ds029798.mongolab.com:29798/heroku_app16581610 -u <dbuser> -p <dbpassword>
+// curl -i -c cookies.txt -d "username=bob&password=secret" http://nki.herokuapp.com/login
 
 doDbOperation('findAllNotes');
 //--------- Note (db) requests - login required --------
@@ -114,7 +157,7 @@ app.listen(port, function() {
 
 // Send email. First replace keywords from email text template.
 // Example:
-// curl -i -b cookies.txt -X POST -H 'Content-Type: application/json' -d '{"arrival":"2013.06.13", "departure":"2013.06.16", "email":"myemail@example.com"}' http://localhost:8080/send-mail
+// curl -i -b cookies.txt -X POST -H 'Content-Type: application/json' -d '{"replaceWith":["2013.06.13","2013.06.16"], "email":"myemail@example.com"}' http://localhost:8080/send-mail
 app.post('/send-mail', ensureAuthenticated, function(req, res){
   emailSetup.text = textReplace(emailSetup.originalText, req.body.replaceWith);
   emailSetup.to   = req.body.email;
