@@ -37,13 +37,13 @@ passport.use(new LocalStrategy(
 ));
 
 //CORS middleware
-var allowCrossDomain = function(req, res, next) {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
-  res.header('Access-Control-Allow-Headers', 'Accept, Origin, Content-Type');
-  res.header('Access-Control-Allow-Credentials', true);
-  next();
-}
+//var allowCrossDomain = function(req, res, next) {
+//  res.header('Access-Control-Allow-Origin', '*');
+//  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+//  res.header('Access-Control-Allow-Headers', 'Accept, Origin, Content-Type');
+//  res.header('Access-Control-Allow-Credentials', true);
+//  next();
+//}
 
 var allowCrossDomain = function(req, res, next) {
   var oneof = false;
